@@ -242,10 +242,22 @@ void ModularSynth::Setup(juce::AudioDeviceManager *globalAudioDeviceManager,
 
 
     //STEVE START
+    mBarsPerOutputChunk = UserPrefs.bars_per_output_chunk.Get();
+    mNumOfOutputChunks = UserPrefs.num_of_output_chunks.Get();
+
+    String filePath = "/Users/stevehiehn/Documents/BespokeSynth/DEBUG_LOGS.txt";
+    std::ofstream ofs(static_cast<const char *> (filePath.toUTF8()), std::ios_base::out | std::ios_base::app);
+    ofs << mBarsPerOutputChunk << '\t' << "mBarsPerOutputChunk" << '\n';
+    ofs << mNumOfOutputChunks << '\t' << "mNumOfOutputChunks" << '\n';
+    ofs.close();
+
+
     for (int i = 0; i < mNumOfOutputChunks; i++) {
-        mGlobalChunkedRecordBuffer[i] = new RollingBuffer(
-                UserPrefs.record_buffer_length_minutes.Get() * 60 * gSampleRate);
-        mGlobalChunkedRecordBuffer[i]->SetNumChannels(2);
+        mGlobalChunkedRecordBuffer.push_back(new RollingBuffer(
+                UserPrefs.record_buffer_length_minutes.Get() * 60 * gSampleRate));
+        mGlobalChunkedRecordBuffer.at(i)->SetNumChannels(2);
+
+        mChunkedRecordingLength.push_back(0);
     }
     //STEVE END
 
@@ -1716,13 +1728,13 @@ void ModularSynth::AudioOut(float **output, int bufferSize, int nChannels) {
             mEnableOutputChunkToIncrement = false;
             mOutputChunkIndex++;
 
-            if(mOutputChunkIndex >= std::size(mGlobalChunkedRecordBuffer)){
+            if (mOutputChunkIndex >= mGlobalChunkedRecordBuffer.size()) {
                 //if the max number of allocated output buffers have been filled start reusing buffers starting at the beginning
                 mOutputChunkIndex = 0;
             }
 
-            mGlobalChunkedRecordBuffer[mOutputChunkIndex]->ClearBuffer();
-            mChunkedRecordingLength[mOutputChunkIndex] = 0;
+            mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->ClearBuffer();
+            mChunkedRecordingLength.at(mOutputChunkIndex) = 0;
         }
     } else {
         mEnableOutputChunkToIncrement = true;
@@ -1734,11 +1746,11 @@ void ModularSynth::AudioOut(float **output, int bufferSize, int nChannels) {
 //    ofs.close();
 
     if (nChannels >= 1)
-        mGlobalChunkedRecordBuffer[mOutputChunkIndex]->WriteChunk(output[0], bufferSize, 0);
+        mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[0], bufferSize, 0);
     if (nChannels >= 2)
-        mGlobalChunkedRecordBuffer[mOutputChunkIndex]->WriteChunk(output[1], bufferSize, 1);
+        mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[1], bufferSize, 1);
 
-    mChunkedRecordingLength[mOutputChunkIndex] += bufferSize;
+    mChunkedRecordingLength.at(mOutputChunkIndex) += bufferSize;
     //STEVE END
 
 
@@ -2727,21 +2739,18 @@ void ModularSynth::SaveOutput() {
 
 
 
-//    RollingBuffer* mGlobalChunkedRecordBuffer[100];
-//    long long mChunkedRecordingLength[100];
     //STEVE START
-    // ****** iterate through chunks
     for (int i = 0; i < mNumOfOutputChunks; ++i) {
-        for (int j = 0; j < mChunkedRecordingLength[i]; ++j) {
+        for (int j = 0; j < mChunkedRecordingLength.at(i); ++j) {
             //RESET mSaveOUTPUTBUFFER
             //TODO WHERE IS THE SIZE OF THE BUFFER SET???
-            mSaveOutputBuffer[0][j] = mGlobalChunkedRecordBuffer[i]->GetSample((int) mChunkedRecordingLength[i] - j - 1,
-                                                                               0);
-            mSaveOutputBuffer[1][j] = mGlobalChunkedRecordBuffer[i]->GetSample((int) mChunkedRecordingLength[i] - j - 1,
-                                                                               1);
+            mSaveOutputBuffer[0][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
+                    (int) mChunkedRecordingLength.at(i) - j - 1,
+                    0);
+            mSaveOutputBuffer[1][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
+                    (int) mChunkedRecordingLength.at(i) - j - 1,
+                    1);
         }
-
-
 
         const std::string CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -2752,16 +2761,13 @@ void ModularSynth::SaveOutput() {
         std::string random_string;
         int length = 8;
 
-        for (std::size_t i = 0; i < length; ++i)
-        {
+        for (std::size_t i = 0; i < length; ++i) {
             random_string += CHARACTERS[distribution(generator)];
         }
 
-
-
         std::string filename = ofGetTimestampString(
                 UserPrefs.recordings_path.Get() + save_prefix + std::to_string(i) + random_string + ".wav");
-        Sample::WriteDataToFile(filename, mSaveOutputBuffer, (int) mChunkedRecordingLength[i], 2);
+        Sample::WriteDataToFile(filename, mSaveOutputBuffer, (int) mChunkedRecordingLength.at(i), 2);
     }
 
     //STEVE END

@@ -230,6 +230,12 @@ public:
    UserPrefDropdownInt oversampling{ "oversampling", 1, 100, UserPrefCategory::General };
    UserPrefTextEntryInt width{ "width", 1700, 100, 10000, 5, UserPrefCategory::General };
    UserPrefTextEntryInt height{ "height", 1100, 100, 10000, 5, UserPrefCategory::General };
+
+
+   UserPrefTextEntryInt bars_per_output_chunk{ "bars_per_output_chunk", 2, 2, 8, 2, UserPrefCategory::General };
+   UserPrefTextEntryInt num_of_output_chunks{ "num_of_output_chunks", 8, 2, 500, 3, UserPrefCategory::General };
+
+
    UserPrefBool set_manual_window_position{ "set_manual_window_position", false, UserPrefCategory::General };
    UserPrefTextEntryInt position_x{ "position_x", 200, -10000, 10000, 5, UserPrefCategory::General };
    UserPrefTextEntryInt position_y{ "position_y", 200, -10000, 10000, 5, UserPrefCategory::General };

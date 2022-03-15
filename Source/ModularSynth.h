@@ -307,8 +307,8 @@ private:
     //STEVE STUFF
     int mBarsPerOutputChunk = 2;
     int mNumOfOutputChunks = 4;
-    RollingBuffer* mGlobalChunkedRecordBuffer[4];
-    long long mChunkedRecordingLength[4];
+    std::vector<RollingBuffer*> mGlobalChunkedRecordBuffer;
+    std::vector<long long> mChunkedRecordingLength;
     int mOutputChunkIndex = -1;
     bool mEnableOutputChunkToIncrement = true;
     //STEVE STUFF
