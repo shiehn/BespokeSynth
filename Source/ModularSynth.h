@@ -302,6 +302,21 @@ private:
 
    RollingBuffer* mGlobalRecordBuffer;
    long long mRecordingLength;
+
+
+    //STEVE STUFF
+    int mBarsPerOutputChunk = 2;
+    int mNumOfOutputChunks = 4;
+    RollingBuffer* mGlobalChunkedRecordBuffer[4];
+    long long mChunkedRecordingLength[4];
+    int mOutputChunkIndex = -1;
+    bool mEnableOutputChunkToIncrement = true;
+    //STEVE STUFF
+
+
+
+
+
    
    struct LogEventItem
    {
