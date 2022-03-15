@@ -51,6 +51,8 @@ namespace {
     juce::String TheClipboard;
 }
 
+using namespace std::chrono;
+
 //static
 bool ModularSynth::sShouldAutosave = false;
 float ModularSynth::sBackgroundLissajousR = 0.408f;
@@ -234,35 +236,22 @@ void ModularSynth::Setup(juce::AudioDeviceManager *globalAudioDeviceManager,
 
     mIOBufferSize = gBufferSize;
 
-    mGlobalRecordBuffer = new RollingBuffer(UserPrefs.record_buffer_length_minutes.Get() * 60 * gSampleRate);
+    mGlobalRecordBuffer = new RollingBuffer(60 * gSampleRate /* allocate a one minute buffer */);
     mGlobalRecordBuffer->SetNumChannels(2);
     mSaveOutputBuffer[0] = new float[mGlobalRecordBuffer->Size()];
     mSaveOutputBuffer[1] = new float[mGlobalRecordBuffer->Size()];
 
-
-
-    //STEVE START
+    mEnableChunkedOutput = UserPrefs.enable_chunked_output.Get();
     mBarsPerOutputChunk = UserPrefs.bars_per_output_chunk.Get();
     mNumOfOutputChunks = UserPrefs.num_of_output_chunks.Get();
-
-    String filePath = "/Users/stevehiehn/Documents/BespokeSynth/DEBUG_LOGS.txt";
-    std::ofstream ofs(static_cast<const char *> (filePath.toUTF8()), std::ios_base::out | std::ios_base::app);
-    ofs << mBarsPerOutputChunk << '\t' << "mBarsPerOutputChunk" << '\n';
-    ofs << mNumOfOutputChunks << '\t' << "mNumOfOutputChunks" << '\n';
-    ofs.close();
-
 
     for (int i = 0; i < mNumOfOutputChunks; i++) {
         mGlobalChunkedRecordBuffer.push_back(new RollingBuffer(
                 UserPrefs.record_buffer_length_minutes.Get() * 60 * gSampleRate));
         mGlobalChunkedRecordBuffer.at(i)->SetNumChannels(2);
-
         mChunkedRecordingLength.push_back(0);
+        mChunkedRecordingLabels.push_back("default");
     }
-    //STEVE END
-
-
-
 
     juce::File(ofToDataPath("savestate")).createDirectory();
     juce::File(ofToDataPath("savestate/autosave")).createDirectory();
@@ -1704,57 +1693,41 @@ void ModularSynth::AudioOut(float **output, int bufferSize, int nChannels) {
     }
     /////////// AUDIO PROCESSING ENDS HERE /////////////
 
-//    double m = TheTransport->GetMeasure(gTime);
-//    double mTime = TheTransport->GetMeasureTime(gTime);
-//    double mPos = TheTransport->GetMeasurePos(gTime);
-//    double mFrac = TheTransport->GetMeasureFraction(kInterval_1n);
+    if (mEnableChunkedOutput) {
+        int measure = TheTransport->GetMeasure(gTime);
+        if (measure % mBarsPerOutputChunk == 0) {
+            if (mEnableOutputChunkToIncrement) {
+                mEnableOutputChunkToIncrement = false;
+                mOutputChunkIndex++;
 
+                if (mOutputChunkIndex >= mGlobalChunkedRecordBuffer.size()) {
+                    //if the max number of allocated output buffers have been filled start reusing buffers starting at the beginning
+                    mOutputChunkIndex = 0;
+                }
 
-
-    // STEVE LOG START
-    //String msg = "OnTimeEvent -  STEVE HIEHN";
-//    String filePath = "/Users/stevehiehn/Desktop/test_log.txt";
-//    std::ofstream ofs(static_cast<const char*> (filePath.toUTF8()), std::ios_base::out | std::ios_base::app );
-//    ofs << m << '\t' << "m" << '\n';
-//    ofs << mTime << '\t' << "mTime" << '\n';
-//    ofs << mFrac << '\t' << "mFrac" << '\n';
-//    ofs << mPos << '\t' << "mPos" << '\n';
-//    ofs.close();
-    // STEVE LOG END
-
-    int measure = TheTransport->GetMeasure(gTime);
-    if (measure % mBarsPerOutputChunk == 0) {
-        if (mEnableOutputChunkToIncrement) {
-            mEnableOutputChunkToIncrement = false;
-            mOutputChunkIndex++;
-
-            if (mOutputChunkIndex >= mGlobalChunkedRecordBuffer.size()) {
-                //if the max number of allocated output buffers have been filled start reusing buffers starting at the beginning
-                mOutputChunkIndex = 0;
+                mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->ClearBuffer();
+                mChunkedRecordingLength.at(mOutputChunkIndex) = 0;
             }
-
-            mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->ClearBuffer();
-            mChunkedRecordingLength.at(mOutputChunkIndex) = 0;
+        } else {
+            mEnableOutputChunkToIncrement = true;
         }
-    } else {
-        mEnableOutputChunkToIncrement = true;
+
+        float tempo = TheTransport->GetTempo();
+        int scaleRoot = TheScale->GetScalePitches().ScaleRoot();
+        std::string noteName = TheScale->GetScalePitches().mNoteNames[scaleRoot];
+        std::string scaleType = TheScale->GetScalePitches().GetType();
+
+        std::ostringstream ss;
+        ss << "bpm-" << tempo << "-" << noteName << "-" << scaleType;
+        mChunkedRecordingLabels[mOutputChunkIndex] = ss.str();
+
+        if (nChannels >= 1)
+            mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[0], bufferSize, 0);
+        if (nChannels >= 2)
+            mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[1], bufferSize, 1);
+
+        mChunkedRecordingLength.at(mOutputChunkIndex) += bufferSize;
     }
-
-//    String filePath = "/Users/stevehiehn/Documents/BespokeSynth/DEBUG_LOGS.txt";
-//    std::ofstream ofs(static_cast<const char *> (filePath.toUTF8()), std::ios_base::out | std::ios_base::app);
-//    ofs << mCurrentChunk << '\t' << "mCurrentMeasure" << '\n';
-//    ofs.close();
-
-    if (nChannels >= 1)
-        mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[0], bufferSize, 0);
-    if (nChannels >= 2)
-        mGlobalChunkedRecordBuffer.at(mOutputChunkIndex)->WriteChunk(output[1], bufferSize, 1);
-
-    mChunkedRecordingLength.at(mOutputChunkIndex) += bufferSize;
-    //STEVE END
-
-
-
 
     if (nChannels >= 1)
         mGlobalRecordBuffer->WriteChunk(output[0], bufferSize, 0);
@@ -2737,40 +2710,24 @@ void ModularSynth::SaveOutput() {
     mGlobalRecordBuffer->ClearBuffer();
     mRecordingLength = 0;
 
+    if (mEnableChunkedOutput) {
+        for (int i = 0; i < mNumOfOutputChunks; ++i) {
+            for (int j = 0; j < mChunkedRecordingLength.at(i); ++j) {
+                //RESET mSaveOUTPUTBUFFER
+                //TODO WHERE IS THE SIZE OF THE BUFFER SET???
+                mSaveOutputBuffer[0][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
+                        (int) mChunkedRecordingLength.at(i) - j - 1,
+                        0);
+                mSaveOutputBuffer[1][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
+                        (int) mChunkedRecordingLength.at(i) - j - 1,
+                        1);
+            }
 
-
-    //STEVE START
-    for (int i = 0; i < mNumOfOutputChunks; ++i) {
-        for (int j = 0; j < mChunkedRecordingLength.at(i); ++j) {
-            //RESET mSaveOUTPUTBUFFER
-            //TODO WHERE IS THE SIZE OF THE BUFFER SET???
-            mSaveOutputBuffer[0][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
-                    (int) mChunkedRecordingLength.at(i) - j - 1,
-                    0);
-            mSaveOutputBuffer[1][j] = mGlobalChunkedRecordBuffer.at(i)->GetSample(
-                    (int) mChunkedRecordingLength.at(i) - j - 1,
-                    1);
+            std::chrono::milliseconds ms = duration_cast<milliseconds>( system_clock::now().time_since_epoch());
+            std::string filename = UserPrefs.recordings_path.Get() + "chunked-output/" + mChunkedRecordingLabels[i] + "-" + std::to_string(i) + "-" + std::to_string(ms.count()) + ".wav";
+            Sample::WriteDataToFile(filename, mSaveOutputBuffer, (int) mChunkedRecordingLength.at(i), 2);
         }
-
-        const std::string CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-        std::random_device random_device;
-        std::mt19937 generator(random_device());
-        std::uniform_int_distribution<> distribution(0, CHARACTERS.size() - 1);
-
-        std::string random_string;
-        int length = 8;
-
-        for (std::size_t i = 0; i < length; ++i) {
-            random_string += CHARACTERS[distribution(generator)];
-        }
-
-        std::string filename = ofGetTimestampString(
-                UserPrefs.recordings_path.Get() + save_prefix + std::to_string(i) + random_string + ".wav");
-        Sample::WriteDataToFile(filename, mSaveOutputBuffer, (int) mChunkedRecordingLength.at(i), 2);
     }
-
-    //STEVE END
 }
 
 const String &ModularSynth::GetTextFromClipboard() const {

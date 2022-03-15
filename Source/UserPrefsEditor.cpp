@@ -65,6 +65,22 @@ void UserPrefsEditor::CreateUIControls()
       if (UserPrefs.oversampling.Get() == oversample)
          UserPrefs.oversampling.GetIndex() = oversample;
    }
+
+    std::array<int, 3> barsPerOutputOptions { 2, 4, 8 };
+    for (int barsPerOutputOption : barsPerOutputOptions)
+    {
+        UserPrefs.bars_per_output_chunk.GetDropdown()->AddLabel(ofToString(barsPerOutputOption), barsPerOutputOption);
+        if (UserPrefs.bars_per_output_chunk.Get() == barsPerOutputOption)
+            UserPrefs.bars_per_output_chunk.GetIndex() = barsPerOutputOption;
+    }
+
+    std::array<int, 6> numOfOutputChunksOptions { 4, 8, 16, 32, 64, 128 };
+    for (int numOfOutputChunksOption : numOfOutputChunksOptions)
+    {
+        UserPrefs.num_of_output_chunks.GetDropdown()->AddLabel(ofToString(numOfOutputChunksOption), numOfOutputChunksOption);
+        if (UserPrefs.num_of_output_chunks.Get() == numOfOutputChunksOption)
+            UserPrefs.num_of_output_chunks.GetIndex() = numOfOutputChunksOption;
+    }
 }
 
 void UserPrefsEditor::Show()
@@ -353,7 +369,10 @@ bool UserPrefsEditor::PrefRequiresRestart(UserPref* pref) const
           pref == &UserPrefs.max_output_channels ||
           pref == &UserPrefs.max_input_channels ||  
           pref == &UserPrefs.record_buffer_length_minutes ||
-          pref == &UserPrefs.show_minimap;
+          pref == &UserPrefs.show_minimap ||
+          pref == &UserPrefs.enable_chunked_output ||
+          pref == &UserPrefs.num_of_output_chunks ||
+          pref == &UserPrefs.bars_per_output_chunk;
 }
 
 void UserPrefsEditor::Save()

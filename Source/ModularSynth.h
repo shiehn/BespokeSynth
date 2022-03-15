@@ -14,6 +14,7 @@
 #include "EffectFactory.h"
 #include "ModuleContainer.h"
 #include "Minimap.h"
+#include <chrono>
 
 #ifdef BESPOKE_LINUX
 #include <climits>
@@ -303,21 +304,15 @@ private:
    RollingBuffer* mGlobalRecordBuffer;
    long long mRecordingLength;
 
-
-    //STEVE STUFF
+    bool mEnableChunkedOutput;
     int mBarsPerOutputChunk = 2;
     int mNumOfOutputChunks = 4;
     std::vector<RollingBuffer*> mGlobalChunkedRecordBuffer;
     std::vector<long long> mChunkedRecordingLength;
+    std::vector<std::string> mChunkedRecordingLabels;
     int mOutputChunkIndex = -1;
     bool mEnableOutputChunkToIncrement = true;
-    //STEVE STUFF
 
-
-
-
-
-   
    struct LogEventItem
    {
       LogEventItem(double _time, std::string _text, LogEventType _type) : time(_time), text(_text), type(_type) {}
