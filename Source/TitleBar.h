@@ -154,6 +154,7 @@ private:
    ClickButton* mSaveStateAsButton;
    ClickButton* mLoadStateButton;
    ClickButton* mWriteAudioButton;
+   ClickButton* mRecAudioButton;
    DropdownList* mLoadLayoutDropdown;
    ClickButton* mDisplayHelpButton;
    ClickButton* mDisplayUserPrefsEditorButton;

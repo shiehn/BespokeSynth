@@ -1878,13 +1878,83 @@ void ModularSynth::AudioOut(float** output, int bufferSize, int nChannels)
          }
       }
    }
+   
    /////////// AUDIO PROCESSING ENDS HERE /////////////
-   if (nChannels >= 1)
-      mGlobalRecordBuffer->WriteChunk(output[0], bufferSize, 0);
-   if (nChannels >= 2)
-      mGlobalRecordBuffer->WriteChunk(output[1], bufferSize, 1);
-   mRecordingLength += bufferSize;
-   mRecordingLength = MIN(mRecordingLength, mGlobalRecordBuffer->Size());
+   
+   if (mEnableChunkedOutput) {
+        
+        measure = TheTransport->GetMeasure(gTime);
+        if(mScheduledChunkedOutput) {
+            mShouldShowRecCountDown = true;
+        
+            if ((measure % mBarsPerOutputChunk != 0) && (!mCountInStarted)) {
+                //prevent starting midway through first measure
+                mCountInStarted = true;
+            }
+        
+            //wait for measure to be zero to start recording
+            if ((measure % mBarsPerOutputChunk == 0) && (mCountInStarted)) {
+                mScheduledChunkedOutput = false;
+                mCheckedOutputStarted = true;
+                mCountInStarted = false;
+                mIsStartBar = true;
+                
+                std::ofstream ofs("/Users/stevehiehn/Documents/BespokeSynth/test_log.txt", std::ios_base::out | std::ios_base::app );
+                ofs << "STARTED" << '\n';
+                ofs.close();
+            }
+        }
+        
+        //TODO TOTAL JUNK FLASHING DIsPLAY HACK
+        if(mScheduledChunkedOutput && !mCheckedOutputStarted){
+            if(mCountDownValue == "") {
+                mCountDownValue = "rec";
+            } else if (mCountDownValue == "rec"){
+                mCountDownValue = "";
+            }
+        }
+        //TODO END TOTAL JUNK
+        
+//        std::ofstream ofs("/Users/stevehiehn/Documents/BespokeSynth/test_log.txt", std::ios_base::out | std::ios_base::app );
+//        ofs << measure << '\n';
+//        ofs.close();
+ 
+        if(mCheckedOutputStarted) {
+            mCountDownValue = "RECORDING";
+            measure = TheTransport->GetMeasure(gTime);
+            
+//            std::ofstream ofs("/Users/stevehiehn/Documents/BespokeSynth/test_log.txt", std::ios_base::out | std::ios_base::app );
+//            ofs << "STARTED" << '\n';
+//            ofs.close();
+        
+            if(measure % mBarsPerOutputChunk != 0){
+                mIsStartBar = false;
+            }
+        
+            if (measure % mBarsPerOutputChunk == 0 && (!mIsStartBar)) {
+                mScheduledChunkedOutput = false;
+                mCheckedOutputStarted = false;
+                
+                mShouldShowRecCountDown = false;
+                mCountDownValue = "";
+
+            } else {
+                if (nChannels >= 1)
+                    mGlobalRecordBuffer->WriteChunk(output[0], bufferSize, 0);
+                if (nChannels >= 2)
+                    mGlobalRecordBuffer->WriteChunk(output[1], bufferSize, 1);
+                mRecordingLength += bufferSize;
+                mRecordingLength = MIN(mRecordingLength, mGlobalRecordBuffer->Size());
+            }
+        }
+   } else {
+       if (nChannels >= 1)
+          mGlobalRecordBuffer->WriteChunk(output[0], bufferSize, 0);
+       if (nChannels >= 2)
+          mGlobalRecordBuffer->WriteChunk(output[1], bufferSize, 1);
+       mRecordingLength += bufferSize;
+       mRecordingLength = MIN(mRecordingLength, mGlobalRecordBuffer->Size());
+   }
    
    Profiler::PrintCounters();
 }
@@ -2992,6 +3062,13 @@ void ModularSynth::ReconnectMidiDevices()
 {
    for (int i=0; i<mMidiDevices.size(); ++i)
       mMidiDevices[i]->Reconnect();
+}
+
+void ModularSynth::RecordOutput()
+{
+    mGlobalRecordBuffer->ClearBuffer();
+    mRecordingLength = 0;
+    mScheduledChunkedOutput = true;
 }
 
 void ModularSynth::SaveOutput()

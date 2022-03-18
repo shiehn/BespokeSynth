@@ -156,6 +156,7 @@ TitleBar::TitleBar()
 , mSaveStateAsButton(nullptr)
 , mLoadStateButton(nullptr)
 , mWriteAudioButton(nullptr)
+, mRecAudioButton(nullptr)
 , mLoadLayoutDropdown(nullptr)
 , mLoadLayoutIndex(-1)
 , mSpawnLists(this)
@@ -180,8 +181,10 @@ void TitleBar::CreateUIControls()
    BUTTON_STYLE(mPlayPauseButton, "play/pause", ButtonDisplayStyle::kPause); UIBLOCK_SHIFTRIGHT(); UIBLOCK_SHIFTX(10);
    BUTTON(mLoadStateButton, "load"); UIBLOCK_SHIFTRIGHT();
    BUTTON(mSaveStateButton,"save"); UIBLOCK_SHIFTRIGHT();
-   BUTTON(mSaveStateAsButton, "save as"); UIBLOCK_SHIFTRIGHT(); UIBLOCK_SHIFTX(10);
-   BUTTON(mWriteAudioButton, "write audio");
+   BUTTON(mSaveStateAsButton, "save as"); UIBLOCK_SHIFTRIGHT(); //UIBLOCK_SHIFTX(10);
+   BUTTON(mWriteAudioButton, "write audio"); UIBLOCK_SHIFTRIGHT();
+   BUTTON(mRecAudioButton, "rec");
+   
    UIBLOCK_NEWLINE();
    BUTTON(mResetLayoutButton,"new patch"); UIBLOCK_SHIFTRIGHT();
    CHECKBOX(mEventLookaheadCheckbox, "lookahead (exp.)", &Transport::sDoEventLookahead); UIBLOCK_SHIFTRIGHT();
@@ -363,6 +366,7 @@ void TitleBar::DrawModule()
    mSaveStateAsButton->Draw();
    mLoadStateButton->Draw();
    mWriteAudioButton->Draw();
+   mRecAudioButton->Draw();
    mLoadLayoutDropdown->Draw();
    mResetLayoutButton->Draw();
    if (TheSynth->IsAudioPaused())
@@ -458,6 +462,25 @@ void TitleBar::DrawModuleUnclipped()
       gFontBold.DrawString("please close VST manager to continue", 50, x, y);
       ofPopStyle();
       return;
+   }
+   
+//   std::ofstream ofs("/Users/stevehiehn/Documents/BespokeSynth/test_log.txt", std::ios_base::out | std::ios_base::app );
+//   ofs << "DRAW IT" << '\n';
+//   ofs.close();
+   
+   if (TheSynth->GetShouldShowRecCountDown())
+   {
+      ofPushStyle();
+      ofSetColor(255, 255, 255);
+      if(TheSynth->GetCountDownValue() == "RECORDING"){
+        ofSetColor(255, 51, 51);
+      }
+      float titleBarWidth, titleBarHeight;
+      TheTitleBar->GetDimensions(titleBarWidth, titleBarHeight);
+      float x = 100;
+      float y = 40 + titleBarHeight;
+      gFontBold.DrawString(TheSynth->GetCountDownValue(), 50, x, y);
+      ofPopStyle();
    }
 
    float saveCooldown = 1 - ofClamp((gTime - TheSynth->GetLastSaveTime()) / 1000, 0, 1);
@@ -606,6 +629,8 @@ void TitleBar::ButtonClicked(ClickButton* button)
       TheSynth->LoadStatePopup();
    if (button == mWriteAudioButton)
       TheSynth->SaveOutput();
+   if (button == mRecAudioButton)
+      TheSynth->RecordOutput();
    if (button == mDisplayHelpButton)
    {
       float x, y, w, h, butW, butH;

@@ -218,6 +218,7 @@ public:
    ofxJSONElement GetLayout();
    void SaveLayoutAsPopup();
    void SaveOutput();
+   void RecordOutput();
    void SaveState(std::string file, bool autosave);
    void LoadState(std::string file);
    void SetStartupSaveStateFile(std::string bskPath);
@@ -226,6 +227,9 @@ public:
    void LoadStatePopup();
    double GetLastSaveTime() { return mLastSaveTime; }
    std::string GetLastSavePath() { return mCurrentSaveStatePath; }
+   
+   bool GetShouldShowRecCountDown() { return mShouldShowRecCountDown; }
+   std::string GetCountDownValue() { return mCountDownValue; }
 
    UserPrefsEditor* GetUserPrefsEditor() { return mUserPrefsEditor; }
    juce::Component* GetFileChooserParent() const;
@@ -299,6 +303,18 @@ private:
    QuickSpawnMenu* mQuickSpawn;
    std::unique_ptr<Minimap> mMinimap;
    UserPrefsEditor* mUserPrefsEditor;
+   
+   
+   bool mEnableChunkedOutput = true;
+   bool mScheduledChunkedOutput = false;
+   bool mCountInStarted = false;
+   bool mIsStartBar = true;
+   bool mCheckedOutputStarted = false;
+   int mBarsPerOutputChunk = 2;
+   bool mShouldShowRecCountDown = false;
+   std::string mCountDownValue = "";
+   int measure;
+   
 
    RollingBuffer* mGlobalRecordBuffer;
    long long mRecordingLength;
